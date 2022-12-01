@@ -29,34 +29,32 @@ fn main() {
     };
     let lines = io::BufReader::new(fp).lines();
 
-    let mut elf_idx = 1;
-    let mut current_calories_count = 0;
+    let mut carried_calories: Vec<i32> = vec![0];
 
-    let mut top_calories = current_calories_count;
-    let mut top_elf_idx = elf_idx;
     for line in lines {
         let line = match line {
             Ok(line) => line,
             Err(error) => panic!("Problem reading line {:?}", error),
         };
         if line.is_empty() {
-            if current_calories_count > top_calories {
-                top_calories = current_calories_count;
-                top_elf_idx = elf_idx;
-            }
-
-            elf_idx += 1;
-            current_calories_count = 0;
+            carried_calories.push(0);
         }
         else {
             let calories = match line.parse::<i32>() {
                 Ok(c) => c,
                 Err(error) => panic!("Problem parsing line {:?}", error),
             };
-            current_calories_count += calories;
+
+            *(carried_calories.last_mut().expect("Problem accessing last vec entry")) += calories;
         }
     }
 
+    carried_calories.sort();
+    carried_calories.reverse();
 
-    println!("Max calories elf {} with {} calories.", top_elf_idx, top_calories);
+    let top_three_total_calories: i32 = (&carried_calories[..3]).iter().sum();
+    for calories in &carried_calories[..3] {
+        println!("{}", calories);
+    }
+    println!("Top-three total: {}", top_three_total_calories);
 }
