@@ -29,7 +29,7 @@ fn print_cargo(cargo: &Vec<Vec<char>>) {
     println!("{}", cargo.iter().enumerate().map(|(idx, _)| format!(" {:?} ", idx)).join(" "));
 }
 
-fn part_01(fp: File) {
+fn part(fp: File, over_9000_mode: bool) {
     let mut lines = io::BufReader::new(fp)
         .lines()
         .map(Result::unwrap)
@@ -77,7 +77,12 @@ fn part_01(fp: File) {
 
                 let drain_idx = (*origin_stack).len() - quantity;
                 let drained = (*origin_stack).drain(drain_idx..);
-                (*destination_stack).extend(drained.rev());
+                if over_9000_mode {
+                    (*destination_stack).extend(drained.rev());
+                }
+                else {
+                    (*destination_stack).extend(drained);
+                }
             }
         }
         println!("{}", line);
@@ -98,7 +103,7 @@ fn main() {
 
     let fp = File::open(file_path).unwrap();
     match args.mode {
-        Mode::Part01 => part_01(fp),
-        Mode::Part02 => panic!("Not implemented"),
+        Mode::Part01 => part(fp, false),
+        Mode::Part02 => part(fp, false),
     };
 }
