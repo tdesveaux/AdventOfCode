@@ -28,6 +28,15 @@ impl FsEntry {
     fn create(parent: Option<Weak<RefCell<FsEntry>>>) -> Rc<RefCell<FsEntry>> {
         Rc::new(RefCell::new(FsEntry { parent: parent, ..Default::default() }))
     }
+
+    fn get_size(&self) -> usize {
+        match self.size {
+            Some(s) => s,
+            None => {
+                self.children.iter().map(|(_n, c)| c.as_ref().borrow().get_size()).sum()
+            }
+        }
+    }
 }
 
 impl Default for FsEntry {
@@ -151,7 +160,38 @@ fn part_01(root: &Rc<RefCell<FsEntry>>) {
     println!("Matched size: {}", matched_size);
 }
 
-fn part_02(_root: &Rc<RefCell<FsEntry>>) {
+fn all_dir_sizes(dir_ref: &Rc<RefCell<FsEntry>>) -> Vec<usize> {
+    let dir = dir_ref.as_ref().borrow();
+
+    let mut sizes = vec![];
+
+    // ignore files
+    if dir.size.is_some() {
+        return sizes;
+    }
+
+    for (_name, child) in &dir.children {
+        sizes.extend(all_dir_sizes(child));
+    }
+
+    sizes.push(dir.get_size());
+
+    sizes
+}
+
+fn part_02(root_ref: &Rc<RefCell<FsEntry>>) {
+    let fs_total: usize = 70000000;
+    let fs_needed: usize = 30000000;
+    let root = root_ref.as_ref().borrow();
+
+    let space_needed = root.get_size() - (fs_total - fs_needed);
+
+    let dir_sizes = all_dir_sizes(&root_ref);
+    let closest_matching_size = dir_sizes.iter()
+        .filter(|&&s| s >= space_needed)
+        .min().unwrap();
+
+    println!("found closes size: {}", closest_matching_size);
 }
 
 fn main() {
