@@ -25,6 +25,44 @@ impl Forest {
     fn index_from_coord(&self, x: usize, y: usize) -> usize {
         y * self.line_length + x
     }
+
+    fn coord_from_index(&self, idx: usize) -> (usize, usize) {
+        (idx % self.line_length, idx / self.line_length)
+    }
+
+    fn _score_direction(&self, start_pos: (usize, usize), direction: (i64, i64)) -> u64 {
+        let _start_pos = (start_pos.0 as i64, start_pos.1 as i64);
+        let mut pos: (i64, i64) = _start_pos;
+        let length = self.line_length as i64;
+
+        let mut prev = None;
+        // NOTE: for neg direction, pos will overflow to usize::MAX which should be > to line_length
+        while pos.0 >= 0 && pos.0 < length && pos.1 >= 0 && pos.1 < length {
+
+            let idx = self.index_from_coord(pos.0 as usize, pos.1 as usize);
+            let value = self._data[idx];
+
+            pos = (pos.0 + direction.0, pos.1 + direction.1);
+
+            if prev.is_none() {
+                prev = Some(value);
+            }
+            else if prev.unwrap() <= value {
+                break;
+            }
+        }
+
+        _start_pos.0.abs_diff(pos.0 - direction.0) + _start_pos.1.abs_diff(pos.1 - direction.1)
+    }
+
+    fn score_coord(&self, coord: (usize, usize)) -> u64 {
+        let down = self._score_direction(coord, (0, 1));
+        let up = self._score_direction(coord, (0, -1));
+        let right = self._score_direction(coord, (1, 0));
+        let left = self._score_direction(coord, (-1, 0));
+
+        down * up * right * left
+    }
 }
 
 fn test_line(forest: &Forest, x: usize, horizontal_lookup: bool, reverse_lookup: bool, visible_coords: &mut HashSet<(usize, usize)>) {
@@ -72,4 +110,14 @@ fn main() {
     }
 
     println!("Found {} visibles", visible_coords.len());
+
+    // Test all possibles
+    let mut highest = 0;
+    for idx in 0..(forest.line_length*forest.line_length) {
+        let coord = forest.coord_from_index(idx);
+        let score = forest.score_coord(coord);
+        highest = std::cmp::max(score, highest);
+    }
+
+    println!("Found coordinate with highest score: {}", highest);
 }
