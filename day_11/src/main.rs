@@ -223,7 +223,7 @@ fn parse() -> Vec<RefCell<Monkey>> {
     monkeys
 }
 
-fn play_round(monkeys: &mut Vec<RefCell<Monkey>>) {
+fn play_round(monkeys: &mut Vec<RefCell<Monkey>>, modulator_opt: Option<i64>) {
     for monkey_idx in 0..monkeys.len() {
         InRoundPrint::println(format!("Monkey {}:", monkey_idx));
 
@@ -236,8 +236,13 @@ fn play_round(monkeys: &mut Vec<RefCell<Monkey>>) {
 
             item = monkey.resolve_ops(item);
 
-            item = item / 3;
-            InRoundPrint::println(format!("    Monkey gets bored with item. Worry level is divided by 3 to {}.", item));
+            if let Some(modulator) = modulator_opt {
+                item %= modulator;
+            }
+            else {
+                item /= 3;
+                InRoundPrint::println(format!("    Monkey gets bored with item. Worry level is divided by 3 to {}.", item));
+            }
 
             let test_result = item % monkey.test_value == 0;
             InRoundPrint::println(format!("    Current worry level is{} divisible by {}.", (if test_result { "" } else {" not"}), monkey.test_value));
@@ -256,12 +261,40 @@ fn play_round(monkeys: &mut Vec<RefCell<Monkey>>) {
 fn main() {
     let mut monkeys = parse();
 
-    for round in 1..=20 {
-        play_round(&mut monkeys);
+    let monkeys_test_values = monkeys.iter().map(|m| m.borrow().test_value);
 
-        InterRoundPrint::println(format!("After round {}, the monkeys are holding items with these worry levels:", round));
+    const USE_UNOPTIMIZED_HELL: bool = false;
+
+    let modulator = match USE_UNOPTIMIZED_HELL {
+        // leaving this for ... posterity
+        true => {
+            let mut modulator = monkeys_test_values.clone().max().unwrap() + 1;
+            while modulator < i64::MAX {
+                println!("test modulator candidate {}", modulator);
+                if monkeys_test_values
+                    .clone()
+                    .all(|v| {
+                        (modulator..=modulator*2).all(|i| {
+                            i % v == (i % modulator) % v
+                        })
+                    }) {
+                        break;
+                    }
+
+                modulator += 1;
+            }
+
+            modulator
+        },
+        false => monkeys_test_values.clone().product::<i64>()
+    };
+
+    for round in 1..=10000 {
+        play_round(&mut monkeys, Some(modulator));
+
+        InterRoundPrint::println(format!("After round {}", round));
         for (idx, m) in monkeys.iter().enumerate() {
-            InterRoundPrint::println(format!("  Monkey {}: {}", idx, m.borrow().items.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", ")));
+            InterRoundPrint::println(format!("  Monkey {} inspected items {} times", idx, m.borrow().inpection_count));
         }
         InterRoundPrint::println(String::new());
     }
