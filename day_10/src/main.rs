@@ -28,11 +28,43 @@ impl Instruction {
     }
 }
 
+struct CRT {
+    line_width: usize,
+    pix_width: usize,
+}
+
+impl CRT {
+    fn print_crt_pixel(&self, state: &State) {
+
+        let line_idx = (state.current_cycle - 1) % self.line_width;
+
+        let pix_range = state.reg_x - (self.pix_width as i64 / 2)..=state.reg_x + (self.pix_width as i64 / 2);
+        if pix_range.contains(&(line_idx as i64)) {
+            print!("#");
+        }
+        else {
+            print!(".");
+        }
+
+        if state.current_cycle % self.line_width == 0 {
+            println!();
+        }
+    }
+}
+
+impl Default for CRT {
+    fn default() -> Self {
+        Self { line_width: 40, pix_width: 3 }
+    }
+}
+
 struct State {
     reg_x: i64,
     current_cycle: usize,
 
     _current_instruction: Option<Instruction>,
+
+    _crt: CRT,
 }
 
 impl State {
@@ -44,6 +76,8 @@ impl State {
                 None => return false // end exec
             };
         }
+
+        self._crt.print_crt_pixel(&self);
 
         if let Some(instruction) = &mut self._current_instruction {
             if instruction.consume(&mut self.reg_x) {
@@ -59,7 +93,7 @@ impl State {
 
 impl Default for State {
     fn default() -> Self {
-        Self { reg_x: 1, current_cycle: 1, _current_instruction: None }
+        Self { reg_x: 1, current_cycle: 1, _current_instruction: None, _crt: CRT::default() }
     }
 }
 
@@ -83,14 +117,13 @@ fn main() {
 
     let peek_at: [usize; 6] = [20, 60, 100, 140, 180, 220];
 
-    let mut state = State { ..Default::default() };
+    let mut state = State::default();
 
     let mut sig_strength = 0;
     while state.exec_cycle(instructions.by_ref()) {
 
         if peek_at.contains(&state.current_cycle) {
             let cycle_sig_strength = (state.current_cycle as i64) * state.reg_x;
-            println!("State at cycle {}: {}. Signal strength: {}", state.current_cycle, state.reg_x, cycle_sig_strength);
             sig_strength += cycle_sig_strength;
         }
     }
