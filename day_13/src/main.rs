@@ -88,8 +88,22 @@ fn parse_pair(pair_iterator: &mut impl Iterator<Item = String>) -> (Element, Ele
     (left, right)
 }
 
-fn compare_order(left: &Element, right: &Element, depth: usize) -> std::cmp::Ordering {
-    match (&left, &right) {
+fn compare_order(left: &Element, right: &Element) -> std::cmp::Ordering {
+
+    let tmp_ref; // ref holder
+    let (left_, right_) = match (&left, &right) {
+        (Element::Value(l), Element::Array(_r)) => {
+            tmp_ref = Element::Array(vec![Element::Value(*l)]);
+            (&tmp_ref, right)
+        },
+        (Element::Array(_l), Element::Value(r)) => {
+            tmp_ref = Element::Array(vec![Element::Value(*r)]);
+            (left, &tmp_ref)
+        }
+        _ => (left, right)
+    };
+
+    match (&left_, &right_) {
         (Element::Value(l), Element::Value(r)) => l.cmp(r),
         (Element::Array(l), Element::Array(r)) => {
             let (mut l_it, mut r_it) = (l.iter(), r.iter());
@@ -97,7 +111,7 @@ fn compare_order(left: &Element, right: &Element, depth: usize) -> std::cmp::Ord
             loop {
                 match (l_it.next(), r_it.next()) {
                     (Some(v_l), Some(v_r)) => {
-                        match compare_order(v_l, v_r, depth+1) {
+                        match compare_order(v_l, v_r) {
                             std::cmp::Ordering::Equal => (),
                             o => return o,
                         }
@@ -108,12 +122,7 @@ fn compare_order(left: &Element, right: &Element, depth: usize) -> std::cmp::Ord
                 };
             };
         },
-        (Element::Value(l), Element::Array(_r)) => {
-            compare_order(&Element::Array(vec![Element::Value(*l)]), right, depth+1)
-        },
-        (Element::Array(_l), Element::Value(r)) => {
-            compare_order(left, &Element::Array(vec![Element::Value(*r)]), depth+1)
-        }
+        _ => panic!("Should not reach")
     }
 }
 
@@ -132,7 +141,7 @@ fn main() {
                 let (left, right) = parse_pair(lines.by_ref().take_while(|l| !l.is_empty()).by_ref());
 
                 pair_count += 1;
-                match compare_order(&left, &right, 0) {
+                match compare_order(&left, &right) {
                     std::cmp::Ordering::Less => correct_pair_sum += pair_count,
                     _ => ()
                 };
@@ -158,12 +167,12 @@ fn main() {
 
         elements.extend(divider_packets.iter().map(|x| x.clone()));
 
-        elements.sort_by(|l, r| compare_order(l, r, 0));
+        elements.sort_by(|l, r| compare_order(l, r));
 
         let decoder_key: usize =elements
             .iter()
             .enumerate()
-            .filter(|(_idx, e)| (&divider_packets).iter().any(|d| compare_order(e, d, 0) == std::cmp::Ordering::Equal))
+            .filter(|(_idx, e)| (&divider_packets).iter().any(|d| compare_order(e, d) == std::cmp::Ordering::Equal))
             .map(|(idx, _e)| idx+1)
             .product();
 
