@@ -88,75 +88,33 @@ fn parse_pair(pair_iterator: &mut impl Iterator<Item = String>) -> (Element, Ele
     (left, right)
 }
 
-fn print_prefix(depth: usize) {
-    for _ in 0..depth {
-        print!("  ");
-    }
-}
-
 fn compare_order(left: &Element, right: &Element, depth: usize) -> std::cmp::Ordering {
-    print_prefix(depth);
-    println!("- Compare {} vs {}", left, right);
+    match (&left, &right) {
+        (Element::Value(l), Element::Value(r)) => l.cmp(r),
+        (Element::Array(l), Element::Array(r)) => {
+            let (mut l_it, mut r_it) = (l.iter(), r.iter());
 
-    if let (Element::Value(left_v), Element::Value(right_v)) = (&left, &right) {
-        if left_v == right_v {
-            return std::cmp::Ordering::Equal;
-        }
-        else if left_v < right_v {
-            print_prefix(depth+1);
-            println!("- Left side is smaller, so inputs are in the right order");
-            return std::cmp::Ordering::Less;
-        }
-        else {
-            print_prefix(depth+1);
-            println!("- Right side is smaller, so inputs are not in the right order");
-            return std::cmp::Ordering::Greater;
+            loop {
+                match (l_it.next(), r_it.next()) {
+                    (Some(v_l), Some(v_r)) => {
+                        match compare_order(v_l, v_r, depth+1) {
+                            std::cmp::Ordering::Equal => (),
+                            o => return o,
+                        }
+                    },
+                    (None, None) => return std::cmp::Ordering::Equal, // comsumed both arrays
+                    (None, Some(_r)) => return std::cmp::Ordering::Less,
+                    (Some(_l), None) => return std::cmp::Ordering::Greater,
+                };
+            };
+        },
+        (Element::Value(l), Element::Array(_r)) => {
+            compare_order(&Element::Array(vec![Element::Value(*l)]), right, depth+1)
+        },
+        (Element::Array(_l), Element::Value(r)) => {
+            compare_order(left, &Element::Array(vec![Element::Value(*r)]), depth+1)
         }
     }
-    else if let (Element::Array(left_array), Element::Array(right_array)) = (&left, &right) {
-        let (mut left_it, mut right_it) = (left_array.iter(), right_array.iter());
-
-        loop {
-            let (n_left, n_right) = (left_it.next(), right_it.next());
-
-            if let (Some(v_left), Some(v_right)) = (n_left, n_right) {
-                match compare_order(v_left, v_right, depth+1) {
-                    std::cmp::Ordering::Equal => (),
-                    o => return o,
-                }
-            }
-            else if n_left.is_none() && n_right.is_none() {
-                // comsumed whole array
-                return std::cmp::Ordering::Equal;
-            }
-            else if n_left.is_none() {
-                print_prefix(depth+1);
-                println!("- Left side ran out of items, so inputs are in the right order");
-                return std::cmp::Ordering::Less;
-            }
-            else if n_right.is_none() {
-                print_prefix(depth+1);
-                println!("- Right side ran out of items, so inputs are not in the right order");
-                return std::cmp::Ordering::Greater;
-            }
-        }
-    }
-    else {
-        if let Element::Value(left_v) = &left {
-            let new_left = Element::Array(vec![Element::Value(*left_v)]);
-            print_prefix(depth+1);
-            println!("- Mixed types; convert left to {} and retry comparison", new_left);
-            return compare_order(&new_left, right, depth+1)
-        }
-        else if let Element::Value(right_v) = &right {
-            let new_right = Element::Array(vec![Element::Value(*right_v)]);
-            print_prefix(depth+1);
-            println!("- Mixed types; convert right to {} and retry comparison", new_right);
-            return compare_order(left, &new_right, depth+1)
-        }
-    }
-
-    panic!("SHOULD NOT HAPPEN");
 }
 
 fn main() {
@@ -174,13 +132,10 @@ fn main() {
                 let (left, right) = parse_pair(lines.by_ref().take_while(|l| !l.is_empty()).by_ref());
 
                 pair_count += 1;
-                println!("== Pair {} ==", pair_count);
                 match compare_order(&left, &right, 0) {
                     std::cmp::Ordering::Less => correct_pair_sum += pair_count,
                     _ => ()
                 };
-
-                println!();
             }
         }
 
@@ -204,10 +159,6 @@ fn main() {
         elements.extend(divider_packets.iter().map(|x| x.clone()));
 
         elements.sort_by(|l, r| compare_order(l, r, 0));
-
-        for e in &elements {
-            println!("{}", e);
-        }
 
         let decoder_key: usize =elements
             .iter()
