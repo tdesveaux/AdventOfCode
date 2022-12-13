@@ -1,5 +1,6 @@
 use std::{fs::File, io::{self, BufRead}, fmt::Display};
 
+#[derive(Clone)]
 enum Element {
     Value(u64),
     Array(Vec<Element>),
@@ -93,29 +94,23 @@ fn print_prefix(depth: usize) {
     }
 }
 
-enum Comparison {
-    Less,
-    Equal,
-    More,
-}
-
-fn compare_order(left: &Element, right: &Element, depth: usize) -> Comparison {
+fn compare_order(left: &Element, right: &Element, depth: usize) -> std::cmp::Ordering {
     print_prefix(depth);
     println!("- Compare {} vs {}", left, right);
 
     if let (Element::Value(left_v), Element::Value(right_v)) = (&left, &right) {
         if left_v == right_v {
-            return Comparison::Equal;
+            return std::cmp::Ordering::Equal;
         }
         else if left_v < right_v {
             print_prefix(depth+1);
             println!("- Left side is smaller, so inputs are in the right order");
-            return Comparison::Less;
+            return std::cmp::Ordering::Less;
         }
         else {
             print_prefix(depth+1);
             println!("- Right side is smaller, so inputs are not in the right order");
-            return Comparison::More;
+            return std::cmp::Ordering::Greater;
         }
     }
     else if let (Element::Array(left_array), Element::Array(right_array)) = (&left, &right) {
@@ -126,24 +121,23 @@ fn compare_order(left: &Element, right: &Element, depth: usize) -> Comparison {
 
             if let (Some(v_left), Some(v_right)) = (n_left, n_right) {
                 match compare_order(v_left, v_right, depth+1) {
-                    Comparison::Less => return Comparison::Less,
-                    Comparison::Equal => (),
-                    Comparison::More => return Comparison::More,
+                    std::cmp::Ordering::Equal => (),
+                    o => return o,
                 }
             }
             else if n_left.is_none() && n_right.is_none() {
                 // comsumed whole array
-                return Comparison::Equal;
+                return std::cmp::Ordering::Equal;
             }
             else if n_left.is_none() {
                 print_prefix(depth+1);
                 println!("- Left side ran out of items, so inputs are in the right order");
-                return Comparison::Less;
+                return std::cmp::Ordering::Less;
             }
             else if n_right.is_none() {
                 print_prefix(depth+1);
                 println!("- Right side ran out of items, so inputs are not in the right order");
-                return Comparison::More;
+                return std::cmp::Ordering::Greater;
             }
         }
     }
@@ -166,28 +160,62 @@ fn compare_order(left: &Element, right: &Element, depth: usize) -> Comparison {
 }
 
 fn main() {
-    let fp = File::open("./src/input.txt").unwrap();
-    let mut lines = io::BufReader::new(fp)
-        .lines()
-        .map(Result::unwrap)
-        .peekable();
+    {
+        let fp = File::open("./src/input.txt").unwrap();
+        let mut lines = io::BufReader::new(fp)
+            .lines()
+            .map(Result::unwrap)
+            .peekable();
 
-    let mut correct_pair_sum = 0;
-    let mut pair_count = 0;
-    while let Some(peeked) = &lines.peek() {
-        if !peeked.is_empty() {
-            let (left, right) = parse_pair(lines.by_ref().take_while(|l| !l.is_empty()).by_ref());
+        let mut correct_pair_sum = 0;
+        let mut pair_count = 0;
+        while let Some(peeked) = &lines.peek() {
+            if !peeked.is_empty() {
+                let (left, right) = parse_pair(lines.by_ref().take_while(|l| !l.is_empty()).by_ref());
 
-            pair_count += 1;
-            println!("== Pair {} ==", pair_count);
-            match compare_order(&left, &right, 0) {
-                Comparison::Less => correct_pair_sum += pair_count,
-                _ => ()
-            };
+                pair_count += 1;
+                println!("== Pair {} ==", pair_count);
+                match compare_order(&left, &right, 0) {
+                    std::cmp::Ordering::Less => correct_pair_sum += pair_count,
+                    _ => ()
+                };
 
-            println!();
+                println!();
+            }
         }
+
+        println!("Total correct pair sum {}", correct_pair_sum);
     }
 
-    println!("Total correct pair sum {}", correct_pair_sum);
+    {
+        let fp = File::open("./src/input.txt").unwrap();
+        let mut elements: Vec<Element> = io::BufReader::new(fp)
+            .lines()
+            .map(Result::unwrap)
+            .filter(|l| !l.is_empty())
+            .map(|l| Element::from_str(&l[..]))
+            .collect();
+
+        let divider_packets = [
+            Element::from_str("[[2]]"),
+            Element::from_str("[[6]]"),
+        ];
+
+        elements.extend(divider_packets.iter().map(|x| x.clone()));
+
+        elements.sort_by(|l, r| compare_order(l, r, 0));
+
+        for e in &elements {
+            println!("{}", e);
+        }
+
+        let decoder_key: usize =elements
+            .iter()
+            .enumerate()
+            .filter(|(_idx, e)| (&divider_packets).iter().any(|d| compare_order(e, d, 0) == std::cmp::Ordering::Equal))
+            .map(|(idx, _e)| idx+1)
+            .product();
+
+        println!("Decoder key is {}", decoder_key);
+     }
 }
