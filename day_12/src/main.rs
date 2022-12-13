@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self, BufRead}, collections::VecDeque};
+use std::{fs::File, io::{self, BufRead}, collections::{VecDeque, BinaryHeap}, ops::Index, cmp::Reverse};
 
 enum Area {
     Start,
@@ -116,30 +116,29 @@ fn main() {
     // init weight to 'inf'->u64 max
     let mut weights: Vec<u64> = vec![u64::MAX; map._data.len()];
 
+    let mut heap = BinaryHeap::new();
+    heap.push((Reverse(0), map.end_idx));
+
     const NODE_DISTANCE: u64 = 1;
 
-    let mut to_check = VecDeque::<usize>::new();
-    to_check.push_back(map.end_idx);
+    while let Some((Reverse(weight), idx)) = heap.pop() {
+        if weights[idx] <= weight {
+            continue;
+        }
+        weights[idx] = weight;
 
-    weights[map.end_idx] = 0;
-
-    while let Some(check_idx) = to_check.pop_front() {
-        let (x, y) = map.coord_from_index(check_idx);
-
-        let self_weight = weights[check_idx];
-
+        let (x, y) = map.coord_from_index(idx);
         for n in map.coord_neighbors(x, y) {
             if let Some((n_x, n_y)) = n {
                 let n_idx = map.index_from_coord(n_x, n_y);
 
-                if !map.can_go(n_idx, check_idx) {
+                if !map.can_go(n_idx, idx) {
                     continue;
                 }
 
-                let n_weight = weights[n_idx];
-                if n_weight > self_weight + NODE_DISTANCE {
-                    weights[n_idx] = self_weight + NODE_DISTANCE;
-                    to_check.push_back(n_idx);
+                let new_weight = weight + NODE_DISTANCE;
+                if new_weight < weights[n_idx] {
+                    heap.push((Reverse(new_weight), n_idx));
                 }
             }
         }
