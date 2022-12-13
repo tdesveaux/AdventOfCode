@@ -119,9 +119,9 @@ fn main() {
     const NODE_DISTANCE: u64 = 1;
 
     let mut to_check = VecDeque::<usize>::new();
-    to_check.push_back(map.start_idx);
+    to_check.push_back(map.end_idx);
 
-    weights[map.start_idx] = 0;
+    weights[map.end_idx] = 0;
 
     while let Some(check_idx) = to_check.pop_front() {
         let (x, y) = map.coord_from_index(check_idx);
@@ -132,7 +132,7 @@ fn main() {
             if let Some((n_x, n_y)) = n {
                 let n_idx = map.index_from_coord(n_x, n_y);
 
-                if !map.can_go(check_idx, n_idx) {
+                if !map.can_go(n_idx, check_idx) {
                     continue;
                 }
 
@@ -163,4 +163,14 @@ fn main() {
     println!();
 
     println!("Weight: {}", weights[map.start_idx]);
+
+    let print_best_starting_weight = (0..map._data.len()).filter(|idx| {
+        match map._data[*idx] {
+            Area::Start => true,
+            Area::Height(e) => e == 0,
+            _ => false
+        }
+    }).map(|e| weights[e])
+    .min().unwrap();
+    println!("Best starting weight: {print_best_starting_weight}");
 }
