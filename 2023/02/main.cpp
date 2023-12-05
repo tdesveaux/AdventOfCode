@@ -20,6 +20,13 @@ struct GameColors
         this->g = max(this->g, other.g);
         this->b = max(this->b, other.b);
     }
+
+    void min_inplace(const GameColors& other)
+    {
+        this->r = max(this->r, other.r);
+        this->g = max(this->g, other.g);
+        this->b = max(this->b, other.b);
+    }
 };
 
 void skip_char(const char* s, const char c, ulong& idx)
@@ -34,13 +41,13 @@ void goto_char(const char* s, const char c, ulong& idx)
         ++idx;
 }
 
-bool is_possible(const string& line, const GameColors& target)
+vector<GameColors> parse_game(const string& line)
 {
     const auto line_len = line.length();
     const auto s = line.c_str();
-    GameColors game_max;
 
-    GameColors current_turn;
+    vector<GameColors> games;
+    games.push_back(GameColors());
 
     for (auto idx = line.find(':', prefix_len) + 1; idx < line_len;)
     {
@@ -55,13 +62,13 @@ bool is_possible(const string& line, const GameColors& target)
         switch (s[idx])
         {
         case 'r':
-            current_turn.r += value;
+            games.back().r += value;
             break;
         case 'g':
-            current_turn.g += value;
+            games.back().g += value;
             break;
         case 'b':
-            current_turn.b += value;
+            games.back().b += value;
             break;
         default:
             fprintf(stderr, "Unknown value encountered '%c' in string '%s'\n", s[idx], s);
@@ -73,16 +80,37 @@ bool is_possible(const string& line, const GameColors& target)
 
         if (s[idx] == ';')
         {
-            game_max.max_inplace(current_turn);
-            current_turn = GameColors();
+            games.push_back(GameColors());
         }
 
         goto_char(s, ' ', idx);
     }
 
-    game_max.max_inplace(current_turn);
+    return games;
+}
+
+bool is_possible(const vector<GameColors> game, const GameColors& target)
+{
+    GameColors game_max;
+
+    for (auto &&turn : game)
+    {
+        game_max.max_inplace(turn);
+    }
 
     return game_max.r <= target.r && game_max.g <= target.g && game_max.b <= target.b;
+}
+
+int game_power(const vector<GameColors> game)
+{
+    GameColors game_min;
+
+    for (auto &&turn : game)
+    {
+        game_min.min_inplace(turn);
+    }
+
+    return game_min.r * game_min.g * game_min.b;
 }
 
 int main(int argc, char** argv)
@@ -106,18 +134,23 @@ int main(int argc, char** argv)
     GameColors part_01_target = {.r = 12, .g = 13, .b = 14};
 
     int possible_sum = 0;
+    int power_sum = 0;
 
     string line;
     while (getline(input_file, line))
     {
         const auto game_id = atoi(&line.c_str()[prefix_len]);
-        if (is_possible(line, part_01_target))
+        const auto game = parse_game(line);
+        if (is_possible(game, part_01_target))
         {
             possible_sum += game_id;
         }
+
+        power_sum += game_power(game);
     }
 
     printf("Part 01 possible sum: %d\n", possible_sum);
+    printf("Part 02 power sum: %d\n", power_sum);
 
     return 0;
 }
