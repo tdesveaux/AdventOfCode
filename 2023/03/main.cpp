@@ -3,11 +3,16 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <optional>
+#include <functional>
 
 using namespace std;
 
 struct Symbol
 {
+    char c;
+
     int x;
     int y;
 };
@@ -71,7 +76,7 @@ bool parse(const char* input_filepath, vector<Symbol> &symbols, vector<Number>& 
             }
             else
             {
-                symbols.push_back(Symbol{.x = x, .y = y});
+                symbols.push_back(Symbol{.c = line[x], .x = x, .y = y});
             }
 
         }
@@ -126,7 +131,56 @@ int main(int argc, char** argv)
         }
     }
 
+    int part2_sum = 0;
+
+    for (const auto& s : symbols)
+    {
+        if (s.c != '*')
+        {
+            continue;
+        }
+
+        const auto last = numbers.end();
+        auto it = numbers.begin();
+
+        const std::function<std::optional<Number>()> next = [&it, &last, &s]()
+        {
+            it = find_if(it, last, [&s](const auto& n) { return n.has_contact(s); });
+            if (it == last)
+            {
+                return optional<Number>(nullopt);
+            }
+            const auto& value = *it;
+            ++it;
+            return optional<Number>(value);
+        };
+
+        const auto first = next();
+        if (!first)
+        {
+            continue;
+        }
+
+        const auto second = next();
+        if (!second)
+        {
+            continue;
+        }
+
+        // no third
+        if (next())
+        {
+            continue;
+        }
+
+        int prod = first->value * second-> value;
+
+        part2_sum += prod;
+    }
+
+
     printf("Part 01 sum: %d\n", sum);
+    printf("Part 02 sum: %d\n", part2_sum);
 
     return 0;
 }
