@@ -3,9 +3,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <deque>
 #include <algorithm>
-#include <optional>
-#include <functional>
 #include <cmath>
 
 using namespace std;
@@ -67,7 +66,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    int points = 0;
+    int part1_points = 0;
+
+    int part2_points = 0;
+    deque<int> copies;
+
+    int card_id = 1;
 
     string line;
     while (getline(input_file, line))
@@ -84,13 +88,38 @@ int main(int argc, char** argv)
                 ++match_count;
             }
         }
+
         if (match_count > 0)
         {
-            points += pow(2, match_count - 1);
+            part1_points += pow(2, match_count - 1);
         }
+
+        int copy_count = 1; // 1 for the original card
+        if (!copies.empty())
+        {
+            const int current_copies_count = copies.front();
+
+            copy_count += current_copies_count;
+
+            copies.pop_front();
+        }
+
+        part2_points += copy_count;
+
+        if (copies.size() < match_count)
+        {
+            copies.resize(match_count, 0);
+        }
+        for (auto idx = 0; idx < match_count; ++idx)
+        {
+            copies[idx] += copy_count;
+        }
+
+        card_id += 1;
     }
 
-    printf("Part 01 total points: %d\n", points);
+    printf("Part 01 total points: %d\n", part1_points);
+    printf("Part 02 total points: %d\n", part2_points);
 
     return 0;
 }
