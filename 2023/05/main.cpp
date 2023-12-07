@@ -9,17 +9,27 @@ using namespace std;
 
 const auto seeds_prefix_len = (sizeof("seeds: ") / sizeof(char)) - 1;
 
-void skip_char(const char* s, const char c, size_t& idx)
+long atol_to_char(const char* s, const char c, size_t& idx)
 {
-    while (s[idx] == c)
+    long ret = 0;
+    while (s[idx] != '\0' && s[idx] != c)
+    {
+        ret = (ret * 10) + (s[idx] - '0');
         ++idx;
+    }
+    return ret;
 }
 
-void goto_char(const char* s, const char c, size_t& idx)
+struct SeedRange
 {
-    while (s[idx] != '\0' && s[idx] != c)
-        ++idx;
-}
+    long begin;
+    long end;
+
+    bool operator<(const SeedRange& other)
+    {
+        return this->begin < other.begin;
+    }
+};
 
 struct Mapping
 {
@@ -33,20 +43,17 @@ struct Mapping
         const char* s = line.c_str();
         size_t idx = 0;
 
-        this->dest_range_start = atol(&s[idx]);
-        goto_char(s, ' ', idx);
-        skip_char(s, ' ', idx);
+        this->dest_range_start = atol_to_char(&s[idx], ' ', idx);
+        ++idx;
 
-        this->src_range_start = atol(&s[idx]);
-        goto_char(s, ' ', idx);
-        skip_char(s, ' ', idx);
+        this->src_range_start = atol_to_char(s, ' ', idx);
+        ++idx;
 
-        this->range_length = atol(&s[idx]);
-        goto_char(s, ' ', idx);
-        skip_char(s, ' ', idx);
+        this->range_length = atol_to_char(s, ' ', idx);
+        ++idx;
     }
 
-    bool map_if_in_range(long src, long& out)
+    bool map_if_in_range(long src, long& out) const
     {
         if (src < src_range_start || (src - src_range_start) >= range_length)
         {
@@ -54,6 +61,40 @@ struct Mapping
         }
 
         out = dest_range_start + (src - src_range_start);
+
+        return true;
+    }
+
+    bool map_if_intersect(SeedRange& seed, vector<SeedRange>& remaining) const
+    {
+        const auto src_range_end = this->src_range_start + this->range_length - 1;
+
+        const bool has_intersect = (
+            this->src_range_start < (seed.end) &&
+            seed.begin < src_range_end
+        );
+        if (!has_intersect)
+        {
+            return false;
+        }
+
+        SeedRange intersect {
+            .begin = max(this->src_range_start, seed.begin),
+            .end = min(src_range_end, seed.end),
+        };
+
+        if (seed.begin < intersect.begin)
+        {
+            remaining.push_back(SeedRange {.begin = seed.begin, .end = intersect.begin - 1});
+        }
+        if (seed.end > intersect.end)
+        {
+            remaining.push_back(SeedRange {.begin = intersect.end + 1, .end = seed.end});
+        }
+
+        // map seed to dest
+        seed.begin = (intersect.begin - this->src_range_start) + this->dest_range_start;
+        seed.end = (intersect.end - this->src_range_start) + this->dest_range_start;
 
         return true;
     }
@@ -86,26 +127,31 @@ int main(int argc, char** argv)
         const char* s = seed_line.c_str();
         for (auto idx = seeds_prefix_len, line_len = seed_line.length(); idx < line_len;)
         {
-            values.push_back(atol(&s[idx]));
-            goto_char(s, ' ', idx);
-            skip_char(s, ' ', idx);
+            values.push_back(atol_to_char(s, ' ', idx));
+            ++idx;
         }
 
         // Skip empty
         getline(input_file, seed_line);
     }
+    // copy from 1
+    vector<SeedRange> values_2;
+    values_2.reserve(values.size() / 2);
+    for (size_t idx = 0; idx < values.size(); idx += 2)
+    {
+        values_2.push_back(SeedRange {.begin = values[idx], .end = values[idx] + values[idx+1] - 1});
+    }
 
+    vector<SeedRange> mapped_values_2;
     string line;
     // This will get the 'rule' line
     while (getline(input_file, line))
     {
         vector<long> mapped_values = values;
+        mapped_values_2.clear();
+        mapped_values_2.reserve(values_2.size());
 
-        for (const auto v : values)
-        {
-            printf("%lu, ", v);
-        }
-        printf("\n");
+        vector<Mapping> mappings;
 
         // Stop on empty line which split each rules
         while (getline(input_file, line) && line.length() > 0)
@@ -122,20 +168,38 @@ int main(int argc, char** argv)
                     continue;
                 }
             }
+
+            for (size_t idx = 0; idx < values_2.size(); ++idx)
+            {
+                auto& v = values_2[idx];
+
+                if (mapping.map_if_intersect(v, values_2))
+                {
+                    mapped_values_2.push_back(v);
+
+                    values_2.at(idx) = values_2.back();
+                    values_2.pop_back();
+                    --idx;
+                }
+            }
         }
 
         values.swap(mapped_values);
-    }
 
-    printf("====================\n");
-    for (const auto v : values)
-    {
-        printf("%lu, ", v);
+        // no match
+        mapped_values_2.reserve(mapped_values_2.size() + values_2.size());
+        for (const auto& r : values_2)
+        {
+            mapped_values_2.push_back(move(r));
+        }
+        values_2.swap(mapped_values_2);
     }
-    printf("\n");
 
     const auto min_values = *min_element(values.begin(), values.end());
     printf("Part 01 min value: %lu\n", min_values);
+
+    const auto min_values_2 = *min_element(values_2.begin(), values_2.end());
+    printf("Part 02 min value: %lu\n", min_values_2.begin);
 
     return 0;
 }
