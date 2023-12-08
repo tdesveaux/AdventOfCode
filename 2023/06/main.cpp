@@ -3,22 +3,22 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <cmath>
 
 using namespace std;
 
 long count_success_possibilities(long time, long distance_record)
 {
-    for (long time_spent = 0; time_spent <= time; ++time_spent)
-    {
-        const auto distance = time_spent * (time - time_spent);
-        // printf("\t %ld -> %ld (vs %ld)\n", time_spent, distance, distance_record);
-        if (distance > distance_record)
-        {
-            return (time - time_spent + 1) - time_spent;
-        }
-    }
+    const double distance_f = double(distance_record);
+    const auto time_f = double(time);
 
-    return 0;
+    const auto delta = pow(time_f, 2) - (4.f * distance_f);
+    const auto delta_sqrt = sqrt(delta);
+
+    const auto min_success = long(floor((time_f - delta_sqrt) / 2.f));
+    const auto max_success = long(floor((time_f + delta_sqrt) / 2.f));
+
+    return max_success - min_success;
 }
 
 int main(int argc, char** argv)
@@ -66,8 +66,6 @@ int main(int argc, char** argv)
 
         const auto time = stoi(time_s);
         const auto distance_record = stoi(distance_record_s);
-
-        printf("%d -> %d\n", time, distance_record);
 
         int min_time = (distance_record / time);
 
