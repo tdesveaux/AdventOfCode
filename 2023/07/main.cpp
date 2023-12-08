@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 using namespace std;
 
@@ -27,7 +28,9 @@ int index_of_card(char c)
     return find(CARD_VALUES.begin(), CARD_VALUES.end(), c) - CARD_VALUES.begin();
 }
 
-HandType card_value(const vector<char>& cards)
+static const size_t JOKER_IDX = index_of_card('J');
+
+HandType card_value(const vector<char>& cards, bool use_jokers)
 {
     vector<char> cards_count(CARD_VALUES.size(), char(0));
 
@@ -37,7 +40,16 @@ HandType card_value(const vector<char>& cards)
         cards_count[index] += 1;
     }
 
+    const auto joker_count = use_jokers ? cards_count.at(JOKER_IDX) : 0;
+    if (use_jokers)
+    {
+        cards_count.erase(cards_count.begin() + JOKER_IDX);
+    }
     sort(cards_count.begin(), cards_count.end(), greater<>());
+    if (use_jokers)
+    {
+        cards_count[0] += joker_count;
+    }
 
     switch (cards_count.front())
     {
@@ -68,23 +80,31 @@ struct Hand
     vector<char> cards;
     int bid;
     HandType type;
+    HandType p2_type;
 
     Hand(const string& hand_bid):
         cards(hand_bid.begin(), hand_bid.begin() + CARDS_COUNT),
         bid(atoi(&hand_bid.c_str()[CARDS_COUNT + 1])),
-        type(card_value(vector<char>(cards)))
+        type(card_value(vector<char>(cards), false)),
+        p2_type(card_value(vector<char>(cards), true))
     {
     }
 };
 
-bool hand_comparator(const Hand& lhs, const Hand& rhs)
+bool hand_comparator(const Hand& lhs, const Hand& rhs, bool use_joker)
 {
-    auto cmp = int(lhs.type) - int(rhs.type);
+    auto cmp = use_joker ? int(lhs.p2_type) - int(rhs.p2_type) : int(lhs.type) - int(rhs.type);
     if (cmp == 0)
     {
         for (size_t idx = 0; idx < Hand::CARDS_COUNT; ++idx)
         {
-            cmp = index_of_card(lhs.cards[idx]) - index_of_card(rhs.cards[idx]);
+            const auto lhs_card = lhs.cards[idx];
+            const auto rhs_card = rhs.cards[idx];
+
+            cmp = (
+                (use_joker && lhs_card == 'J' ? CARD_VALUES.size(): index_of_card(lhs_card)) -
+                (use_joker && rhs_card == 'J' ? CARD_VALUES.size(): index_of_card(rhs_card))
+            );
             if (cmp != 0)
             {
                 break;
@@ -120,13 +140,21 @@ int main(int argc, char** argv)
         hands.push_back(Hand(line));
     }
 
-    sort(hands.begin(), hands.end(), hand_comparator);
+    sort(hands.begin(), hands.end(), bind(&hand_comparator, placeholders::_1, placeholders::_2, false));
     long total_winnings = 0;
     for (size_t hand_idx = 0; hand_idx < hands.size(); ++hand_idx)
     {
         total_winnings += (hand_idx + 1) * hands[hand_idx].bid;
     }
     printf("Part1 total winnings: %d\n", total_winnings);
+
+    sort(hands.begin(), hands.end(), bind(&hand_comparator, placeholders::_1, placeholders::_2, true));
+    long part2_total_winnings = 0;
+    for (size_t hand_idx = 0; hand_idx < hands.size(); ++hand_idx)
+    {
+        part2_total_winnings += (hand_idx + 1) * hands[hand_idx].bid;
+    }
+    printf("Part2 total winnings: %d\n", part2_total_winnings);
 
     return 0;
 }
