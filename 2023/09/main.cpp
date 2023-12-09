@@ -30,11 +30,12 @@ long atol_to_char(const char* s, const char c, size_t& idx)
     return ret;
 }
 
-long get_next(const vector<long>& sequence)
+void get_edges(const vector<long>& sequence, long& begin, long& end)
 {
+    begin = end = 0;
     if (ranges::find_if(sequence, [](long l) {return l != 0;}) == sequence.end())
     {
-        return 0;
+        return;
     }
 
     vector<long> difference;
@@ -43,9 +44,11 @@ long get_next(const vector<long>& sequence)
     {
         difference.push_back(sequence[idx] - sequence[idx - 1]);
     }
-    const auto value = get_next(difference);
+    long sub_begin, sub_end = 0;
+    get_edges(difference, sub_begin, sub_end);
 
-    return sequence.back() + value;
+    begin = sequence.front() - sub_begin;
+    end = sequence.back() + sub_end;
 }
 
 int main(int argc, char** argv)
@@ -67,6 +70,7 @@ int main(int argc, char** argv)
     }
 
     long part1_sum = 0;
+    long part2_sum = 0;
     string line;
     while (getline(input_file, line))
     {
@@ -78,11 +82,15 @@ int main(int argc, char** argv)
             sequence.push_back(atol_to_char(s, ' ', idx));
         }
 
-        const auto value = get_next(sequence);
-        part1_sum += value;
+        long begin, end;
+        get_edges(sequence, begin, end);
+
+        part1_sum += end;
+        part2_sum += begin;
     }
 
     printf("Part1 sum %ld\n", part1_sum);
+    printf("Part2 sum %ld\n", part2_sum);
 
     return 0;
 }
