@@ -6,6 +6,7 @@
 #include <regex>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <functional>
 
 using namespace std;
@@ -45,6 +46,22 @@ size_t find_or_insert(vector<Choice>& choices, const string& id)
     return choices.size() - 1;
 }
 
+size_t next_from_instruction(const char instruction, const Choice& choice)
+{
+    switch (instruction)
+    {
+    case 'L':
+        return choice.left;
+        break;
+    case 'R':
+        return choice.right;
+        break;
+    default:
+        fprintf(stderr, "Unknown instruction '%c'\n", instruction);
+        return 0;
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2)
@@ -68,7 +85,7 @@ int main(int argc, char** argv)
 
     vector<Choice> choices;
 
-    regex choice_re("^([A-Z]{3}) = \\(([A-Z]{3}), ([A-Z]{3})\\)$");
+    regex choice_re("^([A-Z0-9]{3}) = \\(([A-Z0-9]{3}), ([A-Z0-9]{3})\\)$");
     string line;
     getline(input_file, line); // skip empty line
 
@@ -99,23 +116,39 @@ int main(int argc, char** argv)
         const Choice& choice = choices[current_choice];
 
         printf("step %d Node %s, instruction %c\n", steps, choice.id.c_str(), instruction);
-        switch (instruction)
-        {
-        case 'L':
-            current_choice = choice.left;
-            break;
-        case 'R':
-            current_choice = choice.right;
-            break;
-        default:
-            fprintf(stderr, "Unknown instruction at %d '%c'\n", current_inst, instructions[current_inst]);
-            return 1;
-        }
+        current_choice = next_from_instruction(instruction, choice);
 
         ++steps;
     }
 
     printf("Part1 steps to exit: %d\n", steps);
+
+    vector<size_t> start_nodes_step_resolve;
+    for (auto idx = 0; idx < choices.size(); ++idx)
+    {
+        if (choices[idx].id.back() == 'A')
+        {
+            auto walk_idx = idx;
+            for (size_t step = 0; step < SIZE_MAX; ++step)
+            {
+                const auto instruction = instructions[step % instructions.length()];
+                if (choices[walk_idx].id.back() == 'Z')
+                {
+                    start_nodes_step_resolve.push_back(step);
+                    break;
+                }
+                walk_idx = next_from_instruction(instruction, choices[walk_idx]);
+            }
+        }
+    }
+
+    size_t final_step = 1;
+    for (const auto& s : start_nodes_step_resolve)
+    {
+        final_step = lcm(final_step, s);
+    }
+
+    printf("Part2 steps to exit %lu\n", final_step);
 
     return 0;
 }
