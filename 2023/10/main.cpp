@@ -131,7 +131,14 @@ int main(int argc, char** argv)
 
     const auto default_weight = numeric_limits<ulong>::max();
     vector<ulong> weights(pipes.size() * line_len, default_weight);
-    vector<Pos> to_walk = start_pos.get_accessible_neighbours(pipes);
+
+    const auto start_neighbours = start_pos.get_accessible_neighbours(pipes, line_len);
+    if (start_neighbours.size() != 2)
+    {
+        fprintf(stderr, "Part2 logic assume start point can be replaced by another symbol. Start symbol has %d valid neighbours\n", start_neighbours.size());
+        return 1;
+    }
+    vector<Pos> to_walk = start_neighbours;
 
     // init start pos
     const auto start_flatp = start_pos.pos(line_len);
@@ -167,6 +174,62 @@ int main(int argc, char** argv)
         }
     }
     printf("Part1 max_distance = %lu\n", max_distance);
+
+    // Since it's a loop, going in a straight line, each time we cross a pipe block, inside status changes
+    size_t in_count = 0;
+    for (size_t y = 0; y < pipes.size(); ++y)
+    {
+        const auto& line = pipes[y];
+        char last_pipe = 0;
+        bool is_inside = false; // start outside
+
+        for (size_t x = 0; x < line.length(); ++x)
+        {
+            const auto& c = line[x];
+            const bool is_in_loop = weights[y * line_len + x] != default_weight;
+            if (c == '.' || !is_in_loop)
+            {
+                if (is_inside)
+                {
+                    in_count++;
+                }
+            }
+            else
+            {
+                // pipe in loop
+                // check if we need to change inside state
+
+                // - are never the first pipe we encounter, and they don't change the state
+                if (c == '-')
+                {
+                    continue;
+                }
+
+                if (c == '|')
+                {
+                    last_pipe = 0;
+                    is_inside = !is_inside;
+                }
+                else if (connect_west(c) && connect_east(last_pipe))
+                {
+                    // We could check only north, but we need to handle 'S' which connect to everything
+                    bool is_uturn = connect_north(c) == connect_north(last_pipe) || connect_south(c) == connect_south(last_pipe);
+                    if (!is_uturn)
+                    {
+                        is_inside = !is_inside;
+                    }
+
+                    last_pipe = 0;
+                }
+                else
+                {
+                    last_pipe = c;
+                }
+            }
+        }
+    }
+
+    printf("Part2 ground inside loop = %lu\n", in_count);
 
     return 0;
 }
